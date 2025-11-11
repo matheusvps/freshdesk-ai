@@ -1,0 +1,35 @@
+# Core dependencies
+pandas>=2.0.0
+numpy>=1.24.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# Database
+sqlalchemy>=2.0.0
+
+# ETL and data processing
+tqdm>=4.65.0
+pyyaml>=6.0
+
+# NLP and sentiment analysis
+scikit-learn>=1.3.0
+nltk>=3.8.0
+spacy>=3.6.0
+
+# Machine Learning
+xgboost>=2.0.0
+lightgbm>=4.0.0
+joblib>=1.3.0
+
+# Explainable AI
+shap>=0.42.0
+lime>=0.2.0
+
+# Dashboard
+streamlit>=1.28.0
+plotly>=5.17.0
+
+# Utilities
+python-dateutil>=2.8.0
+
+
