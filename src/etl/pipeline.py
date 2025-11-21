@@ -192,11 +192,104 @@ class ETLPipeline:
         
         return df
     
+    def merge_satisfaction_ratings(
+        self,
+        tickets_df: pd.DataFrame,
+        ratings_df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        Mescla satisfaction ratings com tickets.
+        
+        Args:
+            tickets_df: DataFrame de tickets
+            ratings_df: DataFrame de satisfaction ratings
+        
+        Returns:
+            DataFrame de tickets com satisfaction_rating preenchido
+        """
+        if ratings_df is None or len(ratings_df) == 0:
+            return tickets_df
+        
+        # Garante que ticket_id existe e é do tipo correto
+        if 'ticket_id' not in ratings_df.columns:
+            print("[AVISO] Coluna ticket_id não encontrada em satisfaction ratings")
+            return tickets_df
+        
+        # Converte ratings para formato compatível com CSAT/NPS
+        def convert_rating_for_csat(rating_value):
+            """Converte rating do Freshdesk para escala 1-5 para CSAT."""
+            if pd.isna(rating_value):
+                return None
+            
+            rating = int(rating_value)
+            
+            # New Survey Ratings -> escala 1-5
+            if rating == 103:  # Extremely Happy
+                return 5
+            elif rating == 102:  # Very Happy
+                return 5
+            elif rating == 101:  # Happy
+                return 4
+            elif rating == 100:  # Neutral
+                return 3
+            elif rating == -101:  # Unhappy
+                return 2
+            elif rating == -102:  # Very Unhappy
+                return 1
+            elif rating == -103:  # Extremely Unhappy
+                return 1
+            # Classic Survey Ratings
+            elif rating == 1:  # Happy
+                return 4
+            elif rating == 2:  # Neutral
+                return 3
+            elif rating == 3:  # Unhappy
+                return 2
+            else:
+                return None
+        
+        # Prepara DataFrame de ratings para merge
+        ratings_merge = ratings_df[['ticket_id', 'rating_value', 'rating_label', 'feedback', 'created_at']].copy()
+        ratings_merge['satisfaction_rating'] = ratings_merge['rating_value'].apply(convert_rating_for_csat)
+        
+        # Remove duplicatas mantendo o mais recente (baseado em created_at)
+        if 'created_at' in ratings_merge.columns:
+            ratings_merge['created_at'] = pd.to_datetime(ratings_merge['created_at'], errors='coerce')
+            ratings_merge = ratings_merge.sort_values('created_at', ascending=False)
+            ratings_merge = ratings_merge.drop_duplicates(subset=['ticket_id'], keep='first')
+        
+        # Faz merge com tickets
+        tickets_merged = tickets_df.merge(
+            ratings_merge[['ticket_id', 'satisfaction_rating', 'rating_label', 'feedback']],
+            left_on='id',
+            right_on='ticket_id',
+            how='left'
+        )
+        
+        # Remove coluna ticket_id temporária se foi criada
+        if 'ticket_id' in tickets_merged.columns:
+            tickets_merged = tickets_merged.drop(columns=['ticket_id'])
+        
+        # Mantém satisfaction_rating como numérico (já está convertido para escala 1-5)
+        # Não converte para string, mantém como float/int para facilitar cálculos
+        if 'satisfaction_rating' in tickets_merged.columns:
+            # Converte None/NaN para None explicitamente
+            tickets_merged['satisfaction_rating'] = tickets_merged['satisfaction_rating'].where(
+                tickets_merged['satisfaction_rating'].notna(), None
+            )
+        
+        matched_count = tickets_merged['satisfaction_rating'].notna().sum()
+        if matched_count > 0:
+            print(f"[OK] {matched_count} tickets com satisfaction rating associado")
+        
+        return tickets_merged
+    
     def run(
         self,
         tickets_df: Optional[pd.DataFrame] = None,
         contacts_df: Optional[pd.DataFrame] = None,
-        agents_df: Optional[pd.DataFrame] = None
+        agents_df: Optional[pd.DataFrame] = None,
+        satisfaction_ratings_df: Optional[pd.DataFrame] = None
     ):
         """
         Executa o pipeline ETL completo.
@@ -205,10 +298,17 @@ class ETLPipeline:
             tickets_df: DataFrame de tickets
             contacts_df: DataFrame de contatos
             agents_df: DataFrame de agentes
+            satisfaction_ratings_df: DataFrame de satisfaction ratings
         """
         if tickets_df is not None:
             print("Processando tickets...")
             tickets_processed = self.process_tickets(tickets_df)
+            
+            # Mescla satisfaction ratings se disponível
+            if satisfaction_ratings_df is not None and len(satisfaction_ratings_df) > 0:
+                print("Mesclando satisfaction ratings com tickets...")
+                tickets_processed = self.merge_satisfaction_ratings(tickets_processed, satisfaction_ratings_df)
+            
             self.db.insert_tickets(tickets_processed)
             print(f"[OK] {len(tickets_processed)} tickets processados e inseridos")
         

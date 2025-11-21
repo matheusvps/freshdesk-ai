@@ -35,34 +35,42 @@ class MetricsCalculator:
             return None
         
         # Verifica se há dados não nulos
-        if tickets_df['satisfaction_rating'].isna().all():
+        valid_ratings = tickets_df['satisfaction_rating'].dropna()
+        if len(valid_ratings) == 0:
             return None
         
         # Mapeia ratings para números
         def rating_to_number(rating):
-            if pd.isna(rating):
+            if pd.isna(rating) or rating is None:
                 return None
             
+            # Se já é numérico (float/int) e está na escala 1-5, retorna direto
+            if isinstance(rating, (int, float)):
+                if 1 <= rating <= 5:
+                    return float(rating)
+                return None
+            
+            # Se é string, tenta converter
             rating_str = str(rating).lower()
             if 'good' in rating_str or 'satisfied' in rating_str or rating_str == '5':
-                return 5
+                return 5.0
             elif 'bad' in rating_str or 'dissatisfied' in rating_str or rating_str == '1':
-                return 1
+                return 1.0
             elif rating_str == '2':
-                return 2
+                return 2.0
             elif rating_str == '3':
-                return 3
+                return 3.0
             elif rating_str == '4':
-                return 4
+                return 4.0
             elif rating_str.isdigit():
                 rating_int = int(rating_str)
                 if 1 <= rating_int <= 5:
-                    return rating_int
+                    return float(rating_int)
             # Tenta detectar padrões comuns
             elif 'excellent' in rating_str or 'great' in rating_str:
-                return 5
+                return 5.0
             elif 'poor' in rating_str or 'terrible' in rating_str:
-                return 1
+                return 1.0
             else:
                 return None  # Não mapeia valores desconhecidos
         
@@ -92,24 +100,29 @@ class MetricsCalculator:
             return None
         
         # Verifica se há dados não nulos
-        if tickets_df['satisfaction_rating'].isna().all():
+        valid_ratings = tickets_df['satisfaction_rating'].dropna()
+        if len(valid_ratings) == 0:
             return None
         
         # Mapeia ratings para categorias NPS
         def rating_to_nps_category(rating):
-            if pd.isna(rating):
+            if pd.isna(rating) or rating is None:
                 return None
             
-            rating_str = str(rating).lower()
-            
-            # Tenta converter para número primeiro
+            # Se já é numérico (float/int), usa direto
             rating_num = None
-            if rating_str.isdigit():
-                rating_num = int(rating_str)
-            elif 'good' in rating_str or 'satisfied' in rating_str or 'excellent' in rating_str or 'great' in rating_str:
-                rating_num = 5
-            elif 'bad' in rating_str or 'dissatisfied' in rating_str or 'poor' in rating_str or 'terrible' in rating_str:
-                rating_num = 1
+            if isinstance(rating, (int, float)):
+                if 1 <= rating <= 5:
+                    rating_num = float(rating)
+            else:
+                # Se é string, tenta converter
+                rating_str = str(rating).lower()
+                if rating_str.isdigit():
+                    rating_num = int(rating_str)
+                elif 'good' in rating_str or 'satisfied' in rating_str or 'excellent' in rating_str or 'great' in rating_str:
+                    rating_num = 5
+                elif 'bad' in rating_str or 'dissatisfied' in rating_str or 'poor' in rating_str or 'terrible' in rating_str:
+                    rating_num = 1
             
             # Classifica baseado no número
             if rating_num is not None:

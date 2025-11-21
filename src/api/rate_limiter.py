@@ -16,6 +16,7 @@ class RequestType(Enum):
     CONTACTS_LIST = "contacts_list"
     CONTACT_GET = "contact_get"
     AGENTS_LIST = "agents_list"
+    SATISFACTION_RATINGS = "satisfaction_ratings"
     OTHER = "other"
 
 
@@ -39,6 +40,7 @@ class RateLimiter:
         RequestType.TICKET_GET: 50,  # Limite de 50/min para enriquecimento de tickets
         RequestType.CONTACT_GET: 100,  # Assumindo mesmo limite de list
         RequestType.AGENTS_LIST: 100,  # Assumindo mesmo limite de contacts
+        RequestType.SATISFACTION_RATINGS: 100,  # Limite conservador, similar a outros endpoints de listagem
         RequestType.OTHER: 100,  # Limite conservador para outros endpoints
     }
     
@@ -282,6 +284,10 @@ def get_request_type(endpoint: str, method: str = 'GET') -> RequestType:
     # Agents
     elif endpoint_lower.startswith('agents'):
         return RequestType.AGENTS_LIST
+    
+    # Satisfaction Ratings
+    elif endpoint_lower.startswith('surveys/satisfaction_ratings') or endpoint_lower.startswith('surveys'):
+        return RequestType.SATISFACTION_RATINGS
     
     # Outros
     else:

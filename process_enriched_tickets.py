@@ -27,10 +27,11 @@ def main():
     print("Processamento de Tickets Enriquecidos - Pipeline Completo")
     print("=" * 60)
     
-    # Caminho do arquivo de tickets enriquecidos
+    # Caminhos dos arquivos
     tickets_path = "data/raw/tickets_enriched.json"
+    ratings_path = "data/raw/satisfaction_ratings.json"
     
-    # Verifica se o arquivo existe
+    # Verifica se o arquivo de tickets existe
     if not os.path.exists(tickets_path):
         print(f"\n[ERRO] Arquivo não encontrado: {tickets_path}")
         print("Execute primeiro o script collect_enriched_tickets.py")
@@ -56,12 +57,28 @@ def main():
         traceback.print_exc()
         return
     
+    # 1.5. Carrega satisfaction ratings se disponível
+    ratings_df = None
+    if os.path.exists(ratings_path):
+        print("\nCarregando satisfaction ratings...")
+        try:
+            ratings_df = pd.read_json(ratings_path)
+            print(f"[OK] {len(ratings_df)} satisfaction ratings carregados")
+        except Exception as e:
+            print(f"[AVISO] Erro ao carregar satisfaction ratings: {e}")
+            ratings_df = None
+    else:
+        print("\n[AVISO] Arquivo de satisfaction ratings não encontrado. CSAT/NPS podem não estar disponíveis.")
+        print("  Para coletar satisfaction ratings, execute:")
+        print("    collector = FreshdeskCollector()")
+        print("    ratings = collector.get_satisfaction_ratings(save_path='data/raw/satisfaction_ratings.json')")
+    
     # 2. ETL - Processa e armazena no banco
     print("\n[2/6] Processando dados (ETL)...")
     try:
         db = DatabaseManager("data/freshdesk.db")
         etl = ETLPipeline(db)
-        etl.run(tickets_df=tickets_df)
+        etl.run(tickets_df=tickets_df, satisfaction_ratings_df=ratings_df)
         print("[OK] ETL concluído")
     except Exception as e:
         print(f"[ERRO] Erro no ETL: {e}")

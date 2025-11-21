@@ -342,6 +342,133 @@ class FreshdeskCollector:
             print(f"Erro ao coletar conversas do ticket {ticket_id}: {e}")
             return []
     
+    def get_satisfaction_ratings(
+        self,
+        per_page: int = 100,
+        created_since: Optional[str] = None,
+        user_id: Optional[int] = None,
+        save_path: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        Coleta todos os satisfaction ratings com paginação.
+        
+        Args:
+            per_page: Número de ratings por página
+            created_since: Data no formato ISO para filtrar ratings criados desde (ex: '2015-01-19T02:00:00Z')
+            user_id: ID do usuário para filtrar ratings
+            save_path: Caminho para salvar JSON (opcional)
+        
+        Returns:
+            DataFrame com todos os satisfaction ratings
+        """
+        print("Coletando satisfaction ratings...")
+        
+        all_ratings = []
+        page = 1
+        
+        params = {'per_page': per_page}
+        if created_since:
+            params['created_since'] = created_since
+        if user_id:
+            params['user_id'] = user_id
+        
+        try:
+            while True:
+                params['page'] = page
+                # O endpoint é /surveys/satisfaction_ratings
+                # Rate limiting é feito automaticamente em _make_request
+                ratings = self._make_request('surveys/satisfaction_ratings', params=params)
+                
+                if not ratings:
+                    break
+                
+                all_ratings.extend(ratings)
+                print(f"Página {page}: {len(ratings)} satisfaction ratings coletados")
+                
+                if len(ratings) < per_page:
+                    break
+                
+                page += 1
+                # Rate limiting é feito automaticamente em _make_request
+            
+            if not all_ratings:
+                print("Nenhum satisfaction rating encontrado")
+                return pd.DataFrame()
+            
+            df = pd.DataFrame(all_ratings)
+            
+            # Processa o campo ratings (que é um objeto/dict)
+            # Extrai o default_question que é o rating principal
+            if 'ratings' in df.columns:
+                def extract_default_rating(ratings_dict):
+                    if pd.isna(ratings_dict) or not isinstance(ratings_dict, dict):
+                        return None
+                    # Retorna o default_question se existir
+                    return ratings_dict.get('default_question')
+                
+                df['rating_value'] = df['ratings'].apply(extract_default_rating)
+                # Converte ratings para formato legível
+                df['rating_label'] = df['rating_value'].apply(self._convert_rating_to_label)
+            else:
+                df['rating_value'] = None
+                df['rating_label'] = None
+            
+            if save_path:
+                df.to_json(save_path, orient='records', date_format='iso', indent=2)
+                print(f"Satisfaction ratings salvos em {save_path}")
+            
+            print(f"Total: {len(df)} satisfaction ratings coletados")
+            return df
+            
+        except Exception as e:
+            print(f"Erro ao coletar satisfaction ratings: {e}")
+            import traceback
+            traceback.print_exc()
+            return pd.DataFrame()
+    
+    def _convert_rating_to_label(self, rating_value) -> Optional[str]:
+        """
+        Converte valor numérico do rating para label legível.
+        
+        Args:
+            rating_value: Valor numérico do rating
+        
+        Returns:
+            Label legível ou None
+        """
+        if pd.isna(rating_value) or rating_value is None:
+            return None
+        
+        try:
+            rating = int(rating_value)
+        except (ValueError, TypeError):
+            return None
+        
+        # New Survey Ratings
+        if rating == 103:
+            return "Extremely Happy"
+        elif rating == 102:
+            return "Very Happy"
+        elif rating == 101:
+            return "Happy"
+        elif rating == 100:
+            return "Neutral"
+        elif rating == -101:
+            return "Unhappy"
+        elif rating == -102:
+            return "Very Unhappy"
+        elif rating == -103:
+            return "Extremely Unhappy"
+        # Classic Survey Ratings
+        elif rating == 1:
+            return "Happy"
+        elif rating == 2:
+            return "Neutral"
+        elif rating == 3:
+            return "Unhappy"
+        else:
+            return f"Unknown ({rating})"
+    
     def _enrich_single_ticket(
         self,
         ticket_dict: Dict,
@@ -781,6 +908,10 @@ class FreshdeskCollector:
         # Coleta agentes
         agents_path = os.path.join(output_dir, 'agents.json')
         data['agents'] = self.get_agents(save_path=agents_path)
+        
+        # Coleta satisfaction ratings
+        ratings_path = os.path.join(output_dir, 'satisfaction_ratings.json')
+        data['satisfaction_ratings'] = self.get_satisfaction_ratings(save_path=ratings_path)
         
         return data
 
