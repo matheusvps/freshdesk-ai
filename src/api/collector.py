@@ -156,7 +156,7 @@ class FreshdeskCollector:
                 if retry_after > 60 or retry_after < 0:
                     retry_after = 60
                 
-                print(f"⚠ Rate limit excedido. Aguardando {retry_after} segundos...")
+                print(f"[AVISO] Rate limit excedido. Aguardando {retry_after} segundos...")
                 time.sleep(retry_after)
                 # Tenta novamente uma vez
                 return self._make_request(endpoint, params, method, use_thread_local)
@@ -472,7 +472,7 @@ class FreshdeskCollector:
                 print(f"  Restam {len(tickets_to_enrich)} tickets para enriquecer")
         
         if len(tickets_to_enrich) == 0:
-            print("✓ Todos os tickets já estão enriquecidos!")
+            print("[OK] Todos os tickets já estão enriquecidos!")
             return tickets_df
         
         # Calcula número de workers baseado no rate limit se não especificado
@@ -588,7 +588,7 @@ class FreshdeskCollector:
                                     lock
                                 )
         except KeyboardInterrupt:
-            print("\n\n⚠ Interrupção detectada! Salvando progresso...")
+            print("\n\n[AVISO] Interrupção detectada! Salvando progresso...")
             if save_path:
                 self._save_enriched_progress(
                     enriched_tickets,
@@ -599,7 +599,7 @@ class FreshdeskCollector:
                 )
             raise
         except Exception as e:
-            print(f"\n⚠ Erro durante o enriquecimento: {e}")
+            print(f"\n[AVISO] Erro durante o enriquecimento: {e}")
             print("Salvando progresso parcial...")
             if save_path:
                 self._save_enriched_progress(
@@ -636,13 +636,13 @@ class FreshdeskCollector:
         
         # Mostra erros se houver
         if errors:
-            print(f"\n⚠ {len(errors)} tickets tiveram erros durante o enriquecimento:")
+            print(f"\n[AVISO] {len(errors)} tickets tiveram erros durante o enriquecimento:")
             for ticket_id, error in errors[:5]:  # Mostra apenas os primeiros 5
                 print(f"  Ticket {ticket_id}: {error}")
             if len(errors) > 5:
                 print(f"  ... e mais {len(errors) - 5} erros")
         
-        print(f"✓ {len(enriched_df)} tickets enriquecidos (total)")
+        print(f"[OK] {len(enriched_df)} tickets enriquecidos (total)")
         
         return enriched_df
     

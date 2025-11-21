@@ -8,6 +8,7 @@ from datetime import datetime
 import unicodedata
 
 from .database import DatabaseManager
+from ..utils.status_mapper import add_status_name_column
 
 
 class ETLPipeline:
@@ -138,9 +139,13 @@ class ETLPipeline:
         if 'id' in df.columns:
             df['id'] = df['id'].astype(int)
         
+        # Adiciona coluna com nome do status
+        if 'status' in df.columns:
+            df = add_status_name_column(df, 'status', 'status_name')
+        
         # Seleciona apenas colunas relevantes para o banco
         ticket_columns = [
-            'id', 'subject', 'description', 'status', 'priority', 'type',
+            'id', 'subject', 'description', 'status', 'status_name', 'priority', 'type',
             'created_at', 'updated_at', 'due_by', 'fr_due_by',
             'requester_id', 'responder_id', 'group_id', 'tags',
             'satisfaction_rating', 'custom_fields', 'cleaned_text'
@@ -205,19 +210,19 @@ class ETLPipeline:
             print("Processando tickets...")
             tickets_processed = self.process_tickets(tickets_df)
             self.db.insert_tickets(tickets_processed)
-            print(f"✓ {len(tickets_processed)} tickets processados e inseridos")
+            print(f"[OK] {len(tickets_processed)} tickets processados e inseridos")
         
         if contacts_df is not None:
             print("Processando contatos...")
             contacts_processed = self.process_contacts(contacts_df)
             self.db.insert_contacts(contacts_processed)
-            print(f"✓ {len(contacts_processed)} contatos processados e inseridos")
+            print(f"[OK] {len(contacts_processed)} contatos processados e inseridos")
         
         if agents_df is not None:
             print("Processando agentes...")
             agents_processed = self.process_agents(agents_df)
             self.db.insert_agents(agents_processed)
-            print(f"✓ {len(agents_processed)} agentes processados e inseridos")
+            print(f"[OK] {len(agents_processed)} agentes processados e inseridos")
         
         print("Pipeline ETL concluído!")
 

@@ -79,6 +79,9 @@ def show_overview(db: DatabaseManager, metrics_calc: MetricsCalculator):
         if 'status' in tickets_df.columns:
             resolved = (tickets_df['status'] == 4).sum()
             st.metric("Tickets Resolvidos", resolved)
+        elif 'status_name' in tickets_df.columns:
+            resolved = (tickets_df['status_name'] == 'Resolved').sum()
+            st.metric("Tickets Resolvidos", resolved)
         else:
             st.metric("Tickets Resolvidos", "N/A")
     
@@ -102,11 +105,22 @@ def show_overview(db: DatabaseManager, metrics_calc: MetricsCalculator):
     col1, col2 = st.columns(2)
     
     with col1:
-        if 'status' in tickets_df.columns:
-            status_counts = tickets_df['status'].value_counts()
+        if 'status_name' in tickets_df.columns:
+            status_counts = tickets_df['status_name'].value_counts()
             fig = px.pie(
                 values=status_counts.values,
                 names=status_counts.index,
+                title="Tickets por Status"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        elif 'status' in tickets_df.columns:
+            # Usa status numérico mas tenta mapear
+            from ..utils.status_mapper import get_status_name
+            status_counts = tickets_df['status'].value_counts()
+            status_names = status_counts.index.map(get_status_name)
+            fig = px.pie(
+                values=status_counts.values,
+                names=status_names,
                 title="Tickets por Status"
             )
             st.plotly_chart(fig, use_container_width=True)
@@ -258,11 +272,22 @@ def show_ticket_analysis(db: DatabaseManager):
     # Filtros
     st.sidebar.subheader("Filtros")
     
-    if 'status' in tickets_df.columns:
+    if 'status_name' in tickets_df.columns:
         status_filter = st.sidebar.multiselect(
             "Status",
-            options=tickets_df['status'].unique(),
-            default=tickets_df['status'].unique()
+            options=sorted(tickets_df['status_name'].unique()),
+            default=tickets_df['status_name'].unique()
+        )
+        tickets_df = tickets_df[tickets_df['status_name'].isin(status_filter)]
+    elif 'status' in tickets_df.columns:
+        from ..utils.status_mapper import get_status_name
+        status_options = sorted(tickets_df['status'].unique())
+        status_labels = {str(s): get_status_name(s) for s in status_options}
+        status_filter = st.sidebar.multiselect(
+            "Status",
+            options=status_options,
+            format_func=lambda x: f"{get_status_name(x)} ({x})",
+            default=status_options
         )
         tickets_df = tickets_df[tickets_df['status'].isin(status_filter)]
     
@@ -277,9 +302,13 @@ def show_ticket_analysis(db: DatabaseManager):
     # Tabela de tickets
     st.subheader("Tickets")
     
-    display_cols = ['id', 'subject', 'status', 'priority', 'created_at']
+    display_cols = ['id', 'subject', 'status_name', 'status', 'priority', 'created_at']
     if 'sentiment_label' in tickets_df.columns:
         display_cols.append('sentiment_label')
+    
+    # Remove status_name se não existir, mantém status como fallback
+    if 'status_name' not in tickets_df.columns and 'status' in tickets_df.columns:
+        display_cols.remove('status_name')
     
     available_cols = [col for col in display_cols if col in tickets_df.columns]
     st.dataframe(tickets_df[available_cols], use_container_width=True)

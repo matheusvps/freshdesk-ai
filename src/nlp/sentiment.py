@@ -12,12 +12,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report, accuracy_score
 import joblib
 
-try:
-    import spacy
-    SPACY_AVAILABLE = True
-except ImportError:
-    SPACY_AVAILABLE = False
-    print("spaCy não disponível. Usando apenas scikit-learn.")
+# spaCy é opcional - não importa no nível do módulo para evitar problemas
+# O import será feito apenas quando necessário
+SPACY_AVAILABLE = False
 
 
 class SentimentAnalyzer:

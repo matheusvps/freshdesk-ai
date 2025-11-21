@@ -18,6 +18,7 @@ class Tickets(Base):
     subject = Column(String(500))
     description = Column(Text)
     status = Column(Integer)
+    status_name = Column(String(50))
     priority = Column(Integer)
     type = Column(String(50))
     created_at = Column(DateTime)

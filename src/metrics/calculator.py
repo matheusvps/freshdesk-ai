@@ -29,9 +29,13 @@ class MetricsCalculator:
             tickets_df: DataFrame com tickets
         
         Returns:
-            CSAT score (0-5)
+            CSAT score (0-5) ou None se não houver dados
         """
         if 'satisfaction_rating' not in tickets_df.columns:
+            return None
+        
+        # Verifica se há dados não nulos
+        if tickets_df['satisfaction_rating'].isna().all():
             return None
         
         # Mapeia ratings para números
@@ -40,14 +44,27 @@ class MetricsCalculator:
                 return None
             
             rating_str = str(rating).lower()
-            if 'good' in rating_str or 'satisfied' in rating_str:
+            if 'good' in rating_str or 'satisfied' in rating_str or rating_str == '5':
                 return 5
-            elif 'bad' in rating_str or 'dissatisfied' in rating_str:
+            elif 'bad' in rating_str or 'dissatisfied' in rating_str or rating_str == '1':
                 return 1
+            elif rating_str == '2':
+                return 2
+            elif rating_str == '3':
+                return 3
+            elif rating_str == '4':
+                return 4
             elif rating_str.isdigit():
-                return int(rating_str)
+                rating_int = int(rating_str)
+                if 1 <= rating_int <= 5:
+                    return rating_int
+            # Tenta detectar padrões comuns
+            elif 'excellent' in rating_str or 'great' in rating_str:
+                return 5
+            elif 'poor' in rating_str or 'terrible' in rating_str:
+                return 1
             else:
-                return 3  # Neutral
+                return None  # Não mapeia valores desconhecidos
         
         ratings = tickets_df['satisfaction_rating'].apply(rating_to_number).dropna()
         
@@ -61,14 +78,21 @@ class MetricsCalculator:
         Calcula NPS (Net Promoter Score).
         
         NPS = % Promotores - % Detratores
+        Promotores: 4-5 (satisfeitos)
+        Passivos: 3 (neutros)
+        Detratores: 1-2 (insatisfeitos)
         
         Args:
             tickets_df: DataFrame com tickets
         
         Returns:
-            Dicionário com NPS e componentes
+            Dicionário com NPS e componentes ou None se não houver dados
         """
         if 'satisfaction_rating' not in tickets_df.columns:
+            return None
+        
+        # Verifica se há dados não nulos
+        if tickets_df['satisfaction_rating'].isna().all():
             return None
         
         # Mapeia ratings para categorias NPS
@@ -77,12 +101,27 @@ class MetricsCalculator:
                 return None
             
             rating_str = str(rating).lower()
-            if 'good' in rating_str or 'satisfied' in rating_str:
-                return 'promoter'
-            elif 'bad' in rating_str or 'dissatisfied' in rating_str:
-                return 'detractor'
-            else:
-                return 'passive'
+            
+            # Tenta converter para número primeiro
+            rating_num = None
+            if rating_str.isdigit():
+                rating_num = int(rating_str)
+            elif 'good' in rating_str or 'satisfied' in rating_str or 'excellent' in rating_str or 'great' in rating_str:
+                rating_num = 5
+            elif 'bad' in rating_str or 'dissatisfied' in rating_str or 'poor' in rating_str or 'terrible' in rating_str:
+                rating_num = 1
+            
+            # Classifica baseado no número
+            if rating_num is not None:
+                if rating_num >= 4:
+                    return 'promoter'
+                elif rating_num <= 2:
+                    return 'detractor'
+                else:
+                    return 'passive'
+            
+            # Se não conseguiu mapear, retorna None
+            return None
         
         categories = tickets_df['satisfaction_rating'].apply(rating_to_nps_category).dropna()
         
@@ -105,7 +144,10 @@ class MetricsCalculator:
             'promoter_pct': promoter_pct,
             'detractor_pct': detractor_pct,
             'passive_pct': passive_pct,
-            'total_responses': total
+            'promoters': int(promoters),
+            'passives': int(passives),
+            'detractors': int(detractors),
+            'total_responses': int(total)
         }
     
     def calculate_ces(self, tickets_df: pd.DataFrame) -> float:
