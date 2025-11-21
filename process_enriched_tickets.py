@@ -111,12 +111,12 @@ def main():
                         sentiment_analyzer.train(texts, labels)
                         print("  [OK] Modelo treinado")
                     else:
-                        print("  [AVISO] Poucos dados para treinar. Usando modelo padrão.")
-                        sentiment_analyzer._create_pipeline()
+                        print("  [AVISO] Poucos dados para treinar. Criando modelo padrão...")
+                        sentiment_analyzer._create_default_model()
                 except (KeyError, ValueError) as e:
                     print(f"  [AVISO] Não foi possível criar dados de treinamento: {e}")
-                    print("  [AVISO] Usando modelo padrão sem treinamento.")
-                    sentiment_analyzer._create_pipeline()
+                    print("  [AVISO] Criando modelo padrão com dados sintéticos...")
+                    sentiment_analyzer._create_default_model()
             
             # Prediz sentimentos
             if 'cleaned_text' in tickets_df.columns and tickets_df['cleaned_text'].notna().any():

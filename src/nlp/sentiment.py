@@ -12,6 +12,21 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report, accuracy_score
 import joblib
 
+# Tenta importar NLTK para stop words em português
+try:
+    import nltk
+    try:
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
+        try:
+            nltk.download('stopwords', quiet=True)
+        except:
+            pass
+    from nltk.corpus import stopwords
+    NLTK_AVAILABLE = True
+except:
+    NLTK_AVAILABLE = False
+
 # spaCy é opcional - não importa no nível do módulo para evitar problemas
 # O import será feito apenas quando necessário
 SPACY_AVAILABLE = False
@@ -40,8 +55,26 @@ class SentimentAnalyzer:
         else:
             os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
     
+    def _get_stop_words(self):
+        """Obtém lista de stop words baseado no idioma."""
+        if self.language == 'pt':
+            # Para português, tenta usar NLTK, senão usa lista básica
+            if NLTK_AVAILABLE:
+                try:
+                    return stopwords.words('portuguese')
+                except:
+                    pass
+            # Lista básica de stop words em português
+            return ['a', 'o', 'e', 'de', 'que', 'e', 'do', 'da', 'em', 'um', 'para', 'é', 'com', 'não', 'uma', 'os', 'no', 'se', 'na', 'por', 'mais', 'as', 'dos', 'como', 'mas', 'foi', 'ao', 'ele', 'das', 'tem', 'à', 'seu', 'sua', 'ou', 'ser', 'quando', 'muito', 'há', 'nos', 'já', 'está', 'eu', 'também', 'só', 'pelo', 'pela', 'até', 'isso', 'ela', 'entre', 'era', 'depois', 'sem', 'mesmo', 'aos', 'ter', 'seus', 'suas', 'numa', 'pelos', 'pelas', 'num', 'nem', 'suas', 'meu', 'às', 'minha', 'têm', 'numa', 'pelos', 'pelas', 'num', 'nem', 'suas', 'meu', 'às', 'minha', 'têm']
+        else:
+            # Para inglês, usa stop words padrão do scikit-learn
+            return 'english'
+    
     def _create_pipeline(self):
         """Cria pipeline de processamento."""
+        # Obtém stop words
+        stop_words = self._get_stop_words()
+        
         # Usa TF-IDF com n-grams
         vectorizer = TfidfVectorizer(
             max_features=5000,
@@ -49,7 +82,7 @@ class SentimentAnalyzer:
             min_df=2,
             max_df=0.95,
             lowercase=True,
-            stop_words='portuguese' if self.language == 'pt' else 'english'
+            stop_words=stop_words
         )
         
         # Classificador
@@ -63,6 +96,48 @@ class SentimentAnalyzer:
             ('vectorizer', vectorizer),
             ('classifier', classifier)
         ])
+    
+    def _create_default_model(self):
+        """Cria um modelo padrão treinado com dados sintéticos."""
+        self._create_pipeline()
+        
+        # Dados sintéticos básicos para treinar o modelo
+        synthetic_texts = [
+            # Positivos
+            "muito bom excelente ótimo satisfeito feliz agradecido",
+            "perfeito maravilhoso adorado incrível fantástico",
+            "gostei muito obrigado pela ajuda excelente serviço",
+            "resolvido rapidamente muito eficiente parabéns",
+            "atendimento perfeito muito satisfeito recomendo",
+            # Negativos
+            "ruim péssimo insatisfeito decepcionado frustrado",
+            "horrível terrível não funciona problema erro",
+            "lento demorado não resolveu nada inútil",
+            "péssimo atendimento muito ruim não recomendo",
+            "problema não resolvido insatisfeito reclamar",
+            # Neutros
+            "ok tudo bem normal regular sem problemas",
+            "funcionou como esperado sem novidades",
+            "resolvido sem problemas tudo certo",
+            "atendimento normal sem reclamações",
+            "tudo bem funcionando normalmente"
+        ]
+        
+        synthetic_labels = [
+            'positive', 'positive', 'positive', 'positive', 'positive',
+            'negative', 'negative', 'negative', 'negative', 'negative',
+            'neutral', 'neutral', 'neutral', 'neutral', 'neutral'
+        ]
+        
+        # Treina o modelo com dados sintéticos
+        print("  Treinando modelo padrão com dados sintéticos...")
+        try:
+            self.pipeline.fit(synthetic_texts, synthetic_labels)
+            print("  [OK] Modelo padrão criado e treinado")
+        except Exception as e:
+            print(f"  [AVISO] Erro ao treinar modelo padrão: {e}")
+            # Se falhar, pelo menos cria o pipeline (mas não treinado)
+            self._create_pipeline()
     
     def train(
         self,
