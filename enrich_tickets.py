@@ -50,13 +50,19 @@ def main():
     
     # Enriquece tickets
     print("\nIniciando enriquecimento...")
-    print("Isso pode levar algum tempo dependendo do número de tickets.")
-    print("Cada ticket requer 2 requisições adicionais à API.\n")
+    print("Usando processamento paralelo com controle automático de rate limit.")
+    print("Cada ticket requer 1 requisição adicional à API.\n")
+    
+    # Permite configurar número de workers via variável de ambiente
+    # Se não especificado, calcula automaticamente baseado no rate limit
+    max_workers_env = os.getenv('ENRICH_MAX_WORKERS')
+    max_workers = int(max_workers_env) if max_workers_env else None
     
     enriched_df = collector.enrich_tickets(
         tickets_df,
         includes=['conversations', 'requester'],
-        progress=True
+        progress=True,
+        max_workers=max_workers
     )
     
     # Salva tickets enriquecidos
